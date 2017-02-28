@@ -6,6 +6,10 @@ import java.util.*;
  */
 public class TupleDesc {
 
+    private int numFields;
+    private Type[] fieldTypes;
+    private String[] fieldNames;
+
     /**
      * Merge two TupleDescs into one, with td1.numFields + td2.numFields
      * fields, with the first td1.numFields coming from td1 and the remaining
@@ -15,8 +19,17 @@ public class TupleDesc {
      * @return the new TupleDesc
      */
     public static TupleDesc combine(TupleDesc td1, TupleDesc td2) {
-        // some code goes here
-        return null;
+        TupleDesc tupleDesc = new TupleDesc();
+        tupleDesc.numFields = td1.numFields = td2.numFields;
+
+        tupleDesc.fieldTypes = new Type[tupleDesc.numFields];
+        System.arraycopy(td1.fieldTypes, 0, tupleDesc.fieldTypes, 0, td1.numFields);
+        System.arraycopy(td2.fieldTypes, 0, tupleDesc.fieldTypes, td1.numFields, td2.numFields);
+
+        tupleDesc.fieldNames = new String[tupleDesc.numFields];
+        System.arraycopy(td1.fieldNames, 0, tupleDesc.fieldNames, 0, td1.numFields);
+        System.arraycopy(td2.fieldNames, 0, tupleDesc.fieldNames, td1.numFields, td2.numFields);
+        return tupleDesc;
     }
 
     /**
@@ -28,7 +41,15 @@ public class TupleDesc {
      * @param fieldAr array specifying the names of the fields. Note that names may be null.
      */
     public TupleDesc(Type[] typeAr, String[] fieldAr) {
-        // some code goes here
+        this.numFields = typeAr.length;
+        this.fieldTypes = new Type[this.numFields];
+        this.fieldNames = new String[this.numFields];
+        for (int i = 0; i < this.numFields; ++i) {
+            this.fieldTypes[i] = typeAr[i];
+            if (fieldAr != null) {
+                this.fieldNames[i] = fieldAr[i];
+            }
+        }
     }
 
     /**
@@ -40,15 +61,18 @@ public class TupleDesc {
      *        this TupleDesc. It must contain at least one entry.
      */
     public TupleDesc(Type[] typeAr) {
-        // some code goes here
+        this(typeAr, null);
+    }
+
+    public TupleDesc() {
+
     }
 
     /**
      * @return the number of fields in this TupleDesc
      */
     public int numFields() {
-        // some code goes here
-        return 0;
+        return this.numFields;
     }
 
     /**
@@ -59,8 +83,10 @@ public class TupleDesc {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public String getFieldName(int i) throws NoSuchElementException {
-        // some code goes here
-        return null;
+        if (i > this.numFields) {
+            throw new NoSuchElementException();
+        }
+        return this.fieldNames[i];
     }
 
     /**
@@ -71,8 +97,12 @@ public class TupleDesc {
      * @throws NoSuchElementException if no field with a matching name is found.
      */
     public int nameToId(String name) throws NoSuchElementException {
-        // some code goes here
-        return 0;
+        for (int i = 0; i < this.numFields; ++i) {
+            if (name.equals(this.fieldNames[i])) {
+                return i;
+            }
+        }
+        throw new NoSuchElementException();
     }
 
     /**
@@ -83,8 +113,10 @@ public class TupleDesc {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public Type getType(int i) throws NoSuchElementException {
-        // some code goes here
-        return null;
+        if (i > this.numFields) {
+            throw new NoSuchElementException();
+        }
+        return this.fieldTypes[i];
     }
 
     /**
@@ -105,7 +137,17 @@ public class TupleDesc {
      * @return true if the object is equal to this TupleDesc.
      */
     public boolean equals(Object o) {
-        // some code goes here
+        if (o.getClass() != this.getClass()) {
+            return false;
+        }
+        TupleDesc that = (TupleDesc) o;
+        if (this.numFields != that.numFields) {
+            return false;
+        }
+        for (int i = 0; i < this.numFields; ++i) {
+            if (this.fieldNames[i] != that.fieldNames[i]) return false;
+            if (this.fieldTypes[i] != that.fieldTypes[i]) return false;
+        }
         return false;
     }
 
