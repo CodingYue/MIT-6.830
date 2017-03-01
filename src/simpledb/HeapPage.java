@@ -280,7 +280,7 @@ public class HeapPage implements Page {
      * Returns true if associated slot on this page is filled.
      */
     public boolean getSlot(int i) {
-        return (header[i/8] >> (i % 8) & 1) == 1;
+        return ((header[i/8] >> (i % 8)) & 1) == 1;
     }
 
     /**

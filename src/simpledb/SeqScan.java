@@ -1,4 +1,5 @@
 package simpledb;
+import javax.xml.crypto.Data;
 import java.util.*;
 
 /**
@@ -8,25 +9,35 @@ import java.util.*;
  */
 public class SeqScan implements DbIterator {
 
+    private final TransactionId transactionId;
+    private final int tableId;
+    private final String tableAlias;
+
+    private DbFileIterator tableIterator;
     /**
      * Creates a sequential scan over the specified table as a part of the
      * specified transaction.
      *
      * @param tid The transaction this scan is running as a part of.
-     * @param tableid the table to scan.
+     * @param tableId the table to scan.
      * @param tableAlias the alias of this table (needed by the parser);
      *         the returned tupleDesc should have fields with name tableAlias.fieldName
      *         (note: this class is not responsible for handling a case where tableAlias
      *         or fieldName are null.  It shouldn't crash if they are, but the resulting
      *         name can be null.fieldName, tableAlias.null, or null.null).
      */
-    public SeqScan(TransactionId tid, int tableid, String tableAlias) {
-        // some code goes here
+    public SeqScan(TransactionId transactionId, int tableId, String tableAlias) {
+        this.transactionId = transactionId;
+        this.tableId = tableId;
+        this.tableAlias = tableAlias;
+        tableIterator = Database.getCatalog().getDbFile(tableId).iterator(transactionId);
     }
 
     public void open()
         throws DbException, TransactionAbortedException {
-        // some code goes here
+        tableIterator.open();
+//        System.out.println(tableIterator != null);
+//        System.out.println(tableIterator.hasNext());
     }
 
     /**
@@ -36,27 +47,35 @@ public class SeqScan implements DbIterator {
      * prefixed with the tableAlias string from the constructor.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        TupleDesc tupleDesc = Database.getCatalog().getDbFile(tableId).getTupleDesc();
+        Type[] fieldTypes = new Type[tupleDesc.numFields()];
+        String[] fieldNames = new String[tupleDesc.numFields()];
+        for (int i = 0; i < tupleDesc.numFields(); ++i) {
+            fieldNames[i] = tableAlias + tupleDesc.getFieldName(i);
+            fieldTypes[i] = tupleDesc.getType(i);
+        }
+        return new TupleDesc(fieldTypes, fieldNames);
     }
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
-        // some code goes here
-        return false;
+        return tableIterator != null && tableIterator.hasNext();
     }
 
     public Tuple next()
         throws NoSuchElementException, TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+        if (tableIterator == null) {
+            throw new NoSuchElementException();
+        }
+        return tableIterator.next();
     }
 
     public void close() {
-        // some code goes here
+        tableIterator.close();
+        tableIterator = null;
     }
 
     public void rewind()
         throws DbException, NoSuchElementException, TransactionAbortedException {
-        // some code goes here
+        open();
     }
 }

@@ -1,5 +1,6 @@
 package simpledb;
 
+
 import java.util.Map;
 import java.util.HashMap;
 
@@ -79,7 +80,14 @@ public class Tuple {
      * where \t is any whitespace, except newline, and \n is a newline
      */
     public String toString() {
-        // some code goes here
-        throw new UnsupportedOperationException("Implement this");
+        String result = "";
+        for (int i = 0; i < tupleDescription.numFields(); ++i) {
+            if (i > 0) {
+                result += "\t";
+            }
+            result += getField(i).toString();
+        }
+        result += "\n";
+        return result;
     }
 }

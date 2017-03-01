@@ -77,13 +77,11 @@ public class HeapFileIterator implements DbFileIterator {
         pageIterator = null;
     }
 
-    private Iterator<Tuple> getTupleIteratorByPageNo(int pageNo) throws DbException {
+    private Iterator<Tuple> getTupleIteratorByPageNo(int pageNo)
+            throws NoSuchElementException, TransactionAbortedException, DbException {
         HeapPage page;
-        try {
-            page = (HeapPage) heapFile.readPage(new HeapPageId(heapFile.getId(), currentPageNo));
-        } catch (IOException e) {
-            throw new DbException("");
-        }
+        page = (HeapPage) Database.getBufferPool().getPage(
+                transactionId, new HeapPageId(heapFile.getId(), pageNo), Permissions.READ_ONLY);
         return page.iterator();
     }
 }

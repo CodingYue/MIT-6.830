@@ -1,5 +1,6 @@
 package simpledb;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.*;
 
@@ -20,13 +21,13 @@ public class HeapFile implements DbFile {
      *
      * @param f the file that stores the on-disk backing store for this heap file.
      */
-    private int pageCount;
+    private long pageCount;
     private final File file;
     private final TupleDesc tupleDescription;
     public HeapFile(File f, TupleDesc td) {
         file = f;
         tupleDescription = td;
-        pageCount = 1;
+        pageCount = f.length() / Database.getBufferPool().PAGE_SIZE;
     }
 
     /**
@@ -60,16 +61,19 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public Page readPage(PageId pid) throws IOException {
-        RandomAccessFile randomAccessFile;
+    public Page readPage(PageId pid) throws NoSuchElementException {
+        try {
+            RandomAccessFile randomAccessFile;
+            randomAccessFile = new RandomAccessFile(file, "r");
+            randomAccessFile.seek(BufferPool.PAGE_SIZE * pid.pageno());
+            byte data[] = new byte[BufferPool.PAGE_SIZE];
+            randomAccessFile.read(data);
 
-        randomAccessFile = new RandomAccessFile(file, "r");
-        randomAccessFile.seek(BufferPool.PAGE_SIZE * pid.pageno());
-        byte data[] = new byte[BufferPool.PAGE_SIZE];
-        randomAccessFile.read(data);
-
-        Page page = new HeapPage((HeapPageId)pid, data);
-        return page;
+            Page page = new HeapPage((HeapPageId) pid, data);
+            return page;
+        } catch (IOException e) {
+            throw  new NoSuchElementException();
+        }
     }
 
     // see DbFile.java for javadocs
@@ -81,7 +85,7 @@ public class HeapFile implements DbFile {
     /**
      * Returns the number of pages in this HeapFile.
      */
-    public int numPages() {
+    public long numPages() {
         return pageCount;
     }
 

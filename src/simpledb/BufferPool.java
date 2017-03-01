@@ -64,7 +64,11 @@ public class BufferPool {
         if (cachedPageIndex.containsKey(pid)) {
             return pagePool[cachedPageIndex.get(pid)];
         }
-        return null;
+        int idleIdx = idlePageIdx.iterator().next();
+        cachedPageIndex.put(pid, idleIdx);
+        pagePool[idleIdx] = Database.getCatalog().getDbFile(
+                pid.getTableId()).readPage(pid);
+        return pagePool[idleIdx];
     }
 
     /**
