@@ -6,7 +6,6 @@ import java.util.*;
  */
 public class TupleDesc {
 
-    private int numFields;
     private Type[] fieldTypes;
     private String[] fieldNames;
 
@@ -20,15 +19,14 @@ public class TupleDesc {
      */
     public static TupleDesc combine(TupleDesc td1, TupleDesc td2) {
         TupleDesc tupleDesc = new TupleDesc();
-        tupleDesc.numFields = td1.numFields = td2.numFields;
 
-        tupleDesc.fieldTypes = new Type[tupleDesc.numFields];
-        System.arraycopy(td1.fieldTypes, 0, tupleDesc.fieldTypes, 0, td1.numFields);
-        System.arraycopy(td2.fieldTypes, 0, tupleDesc.fieldTypes, td1.numFields, td2.numFields);
+        tupleDesc.fieldTypes = new Type[td1.numFields()+td2.numFields()];
+        System.arraycopy(td1.fieldTypes, 0, tupleDesc.fieldTypes, 0, td1.numFields());
+        System.arraycopy(td2.fieldTypes, 0, tupleDesc.fieldTypes, td1.numFields(), td2.numFields());
 
-        tupleDesc.fieldNames = new String[tupleDesc.numFields];
-        System.arraycopy(td1.fieldNames, 0, tupleDesc.fieldNames, 0, td1.numFields);
-        System.arraycopy(td2.fieldNames, 0, tupleDesc.fieldNames, td1.numFields, td2.numFields);
+        tupleDesc.fieldNames = new String[tupleDesc.numFields()];
+        System.arraycopy(td1.fieldNames, 0, tupleDesc.fieldNames, 0, td1.numFields());
+        System.arraycopy(td2.fieldNames, 0, tupleDesc.fieldNames, td1.numFields(), td2.numFields());
         return tupleDesc;
     }
 
@@ -41,10 +39,9 @@ public class TupleDesc {
      * @param fieldAr array specifying the names of the fields. Note that names may be null.
      */
     public TupleDesc(Type[] typeAr, String[] fieldAr) {
-        this.numFields = typeAr.length;
-        this.fieldTypes = new Type[this.numFields];
-        this.fieldNames = new String[this.numFields];
-        for (int i = 0; i < this.numFields; ++i) {
+        this.fieldTypes = new Type[typeAr.length];
+        this.fieldNames = new String[typeAr.length];
+        for (int i = 0; i < typeAr.length; ++i) {
             this.fieldTypes[i] = typeAr[i];
             if (fieldAr != null) {
                 this.fieldNames[i] = fieldAr[i];
@@ -72,7 +69,7 @@ public class TupleDesc {
      * @return the number of fields in this TupleDesc
      */
     public int numFields() {
-        return this.numFields;
+        return fieldTypes.length;
     }
 
     /**
@@ -83,10 +80,10 @@ public class TupleDesc {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public String getFieldName(int i) throws NoSuchElementException {
-        if (i > this.numFields) {
+        if (i > numFields()) {
             throw new NoSuchElementException();
         }
-        return this.fieldNames[i];
+        return fieldNames[i];
     }
 
     /**
@@ -97,8 +94,8 @@ public class TupleDesc {
      * @throws NoSuchElementException if no field with a matching name is found.
      */
     public int nameToId(String name) throws NoSuchElementException {
-        for (int i = 0; i < this.numFields; ++i) {
-            if (name.equals(this.fieldNames[i])) {
+        for (int i = 0; i < numFields(); ++i) {
+            if (name.equals(fieldNames[i])) {
                 return i;
             }
         }
@@ -113,7 +110,7 @@ public class TupleDesc {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public Type getType(int i) throws NoSuchElementException {
-        if (i > this.numFields) {
+        if (i > numFields()) {
             throw new NoSuchElementException();
         }
         return this.fieldTypes[i];
@@ -124,8 +121,11 @@ public class TupleDesc {
      * Note that tuples from a given TupleDesc are of a fixed size.
      */
     public int getSize() {
-        // some code goes here
-        return 0;
+        int size = 0;
+        for (int i = 0; i < numFields(); ++i) {
+            size += fieldTypes[i].getLen();
+        }
+        return size;
     }
 
     /**
@@ -141,10 +141,10 @@ public class TupleDesc {
             return false;
         }
         TupleDesc that = (TupleDesc) o;
-        if (this.numFields != that.numFields) {
+        if (this.numFields() != that.numFields()) {
             return false;
         }
-        for (int i = 0; i < this.numFields; ++i) {
+        for (int i = 0; i < numFields(); ++i) {
             if (!Objects.equals(this.fieldTypes[i], that.fieldTypes[i])) return false;
             if (!Objects.equals(this.fieldNames[i], that.fieldNames[i])) return false;
         }
