@@ -66,7 +66,7 @@ public class Tuple {
      * @param i field index to return. Must be a valid index.
      */
     public Field getField(int i) {
-        return this.fieldValues.get(i);
+        return fieldValues.get(i);
     }
 
     /**

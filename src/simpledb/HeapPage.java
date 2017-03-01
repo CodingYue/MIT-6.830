@@ -267,15 +267,20 @@ public class HeapPage implements Page {
      * Returns the number of empty slots on this page.
      */
     public int getNumEmptySlots() {
-        return numSlots;
+        int size = 0;
+        for (int i = 0; i < numSlots; ++i) {
+            if (!getSlot(i)) {
+                ++size;
+            }
+        }
+        return size;
     }
 
     /**
      * Returns true if associated slot on this page is filled.
      */
     public boolean getSlot(int i) {
-        // some code goes here
-        return false;
+        return (header[i/8] >> (i % 8) & 1) == 1;
     }
 
     /**
@@ -291,8 +296,11 @@ public class HeapPage implements Page {
      * (note that this iterator shouldn't return tuples in empty slots!)
      */
     public Iterator<Tuple> iterator() {
-        // some code goes here
-        return null;
+        List<Tuple> validTuples = new ArrayList<Tuple>();
+        for (int i = 0; i < numSlots; ++i) {
+            if (getSlot(i)) validTuples.add(tuples[i]);
+        }
+        return validTuples.iterator();
     }
 
 }
