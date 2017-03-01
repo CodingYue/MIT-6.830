@@ -137,18 +137,21 @@ public class TupleDesc {
      * @return true if the object is equal to this TupleDesc.
      */
     public boolean equals(Object o) {
+        System.out.println("Equals function");
         if (o.getClass() != this.getClass()) {
             return false;
         }
+        System.out.println("getClass are the same");
         TupleDesc that = (TupleDesc) o;
         if (this.numFields != that.numFields) {
+            System.out.printf("num fields not equal, %d, %d", this.numFields, that.numFields);
             return false;
         }
         for (int i = 0; i < this.numFields; ++i) {
-            if (this.fieldNames[i] != that.fieldNames[i]) return false;
-            if (this.fieldTypes[i] != that.fieldTypes[i]) return false;
+            if (!Objects.equals(this.fieldTypes[i], that.fieldTypes[i])) return false;
+            if (!Objects.equals(this.fieldNames[i], that.fieldNames[i])) return false;
         }
-        return false;
+        return true;
     }
 
     public int hashCode() {

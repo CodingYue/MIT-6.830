@@ -1,6 +1,8 @@
 package simpledb;
 
 import java.util.Map;
+import java.util.HashMap;
+
 
 /**
  * Tuple maintains information about the contents of a tuple.
@@ -13,6 +15,7 @@ public class Tuple {
     private RecordId recordId;
     private Map<Integer, Field> fieldValues;
 
+
     /**
      * Create a new tuple with the specified schema (type).
      *
@@ -21,6 +24,7 @@ public class Tuple {
      */
     public Tuple(TupleDesc td) {
         this.tupleDescription = td;
+        this.fieldValues = new HashMap<Integer, Field>();
     }
 
     /**
