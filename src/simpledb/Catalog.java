@@ -20,7 +20,6 @@ public class Catalog {
     private final Map<Integer, DbFile> dbFileMap;
     private final Map<Integer, String> tableNameMap;
     private final Map<Integer, String> pkeyFieldMap;
-    private int tableCount;
 
     /**
      * Constructor.
@@ -43,7 +42,6 @@ public class Catalog {
      * conflict exists, use the last table to be added as the table for a given name.
      */
     public void addTable(DbFile file, String name, String pkeyField) {
-//        tableCount++;
         nameToTableId.put(name, file.getId());
         dbFileMap.put(file.getId(), file);
         tableNameMap.put(file.getId(), name);

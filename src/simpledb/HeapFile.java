@@ -20,11 +20,13 @@ public class HeapFile implements DbFile {
      *
      * @param f the file that stores the on-disk backing store for this heap file.
      */
+    private int pageCount;
     private final File file;
     private final TupleDesc tupleDescription;
     public HeapFile(File f, TupleDesc td) {
         file = f;
         tupleDescription = td;
+        pageCount = 1;
     }
 
     /**
@@ -58,9 +60,16 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public Page readPage(PageId pid) {
-        // some code goes here
-        return null;
+    public Page readPage(PageId pid) throws IOException {
+        RandomAccessFile randomAccessFile;
+
+        randomAccessFile = new RandomAccessFile(file, "r");
+        randomAccessFile.seek(BufferPool.PAGE_SIZE * pid.pageno());
+        byte data[] = new byte[BufferPool.PAGE_SIZE];
+        randomAccessFile.read(data);
+
+        Page page = new HeapPage((HeapPageId)pid, data);
+        return page;
     }
 
     // see DbFile.java for javadocs
@@ -73,7 +82,7 @@ public class HeapFile implements DbFile {
      * Returns the number of pages in this HeapFile.
      */
     public int numPages() {
-        return 0;
+        return pageCount;
     }
 
     // see DbFile.java for javadocs
@@ -94,8 +103,8 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
-        // some code goes here
-        return null;
+        HeapFileIterator iterator = new HeapFileIterator(this, tid);
+        return iterator;
     }
     
 }
