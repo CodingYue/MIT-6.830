@@ -95,7 +95,7 @@ public class TupleDesc {
      */
     public int nameToId(String name) throws NoSuchElementException {
         for (int i = 0; i < numFields(); ++i) {
-            if (name.equals(fieldNames[i])) {
+            if (Objects.equals(name, fieldNames[i])) {
                 return i;
             }
         }
@@ -137,7 +137,7 @@ public class TupleDesc {
      * @return true if the object is equal to this TupleDesc.
      */
     public boolean equals(Object o) {
-        if (o.getClass() != this.getClass()) {
+        if (o == null || o.getClass() != this.getClass()) {
             return false;
         }
         TupleDesc that = (TupleDesc) o;

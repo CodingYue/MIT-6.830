@@ -66,9 +66,11 @@ public class BufferPool {
         }
         int idleIdx = idlePageIdx.iterator().next();
         cachedPageIndex.put(pid, idleIdx);
+        idlePageIdx.remove(idleIdx);
         pagePool[idleIdx] = Database.getCatalog().getDbFile(
                 pid.getTableId()).readPage(pid);
         return pagePool[idleIdx];
+//        return Database.getCatalog().getDbFile(pid.getTableId()).readPage(pid);
     }
 
     /**
