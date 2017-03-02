@@ -2,4 +2,6 @@ bin/
 dist/
 .idea/
 
+*.gz
+*.jar
 *.iml
