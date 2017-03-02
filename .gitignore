@@ -1,3 +1,5 @@
-*.gz
 bin/
 dist/
+.idea/
+
+*.iml
