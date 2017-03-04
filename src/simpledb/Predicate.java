@@ -1,5 +1,7 @@
 package simpledb;
 
+import java.util.Objects;
+
 /** Predicate compares tuples to a specified Field value.
  */
 public class Predicate {
@@ -29,6 +31,10 @@ public class Predicate {
         }
     }
 
+    private final int fieldNo;
+    private final Op op;
+    private final Field operand;
+
     /**
      * Constructor.
      *
@@ -37,7 +43,9 @@ public class Predicate {
      * @param operand field value to compare passed in tuples to
      */
     public Predicate(int field, Op op, Field operand) {
-        // some code goes here
+        this.fieldNo = field;
+        this.op = op;
+        this.operand = operand;
     }
 
     /**
@@ -50,8 +58,7 @@ public class Predicate {
      * @return true if the comparison is true, false otherwise.
      */
     public boolean filter(Tuple t) {
-        // some code goes here
-        return false;
+        return t.getField(fieldNo).compare(op, operand);
     }
 
     /**
@@ -59,7 +66,7 @@ public class Predicate {
      * "f = field_id op = op_string operand = operand_string
      */
     public String toString() {
-        // some code goes here
-        return "";
+        return "f = " + String.valueOf(fieldNo) + ", op = " + op.toString() + ", " +
+                "operand = " + operand.toString();
     }
 }

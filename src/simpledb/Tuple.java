@@ -14,8 +14,16 @@ public class Tuple {
 
     private TupleDesc tupleDescription;
     private RecordId recordId;
-    private Map<Integer, Field> fieldValues;
+    private Field fieldValues[];
 
+    public static Tuple combine(Tuple t1, Tuple t2) {
+        Tuple tuple = new Tuple(TupleDesc.combine(t1.getTupleDesc(), t2.getTupleDesc()));
+        tuple.recordId = null;
+        System.arraycopy(t1.fieldValues, 0, tuple.fieldValues, 0, t1.getTupleDesc().numFields());
+        System.arraycopy(t2.fieldValues, 0, tuple.fieldValues, t1.getTupleDesc().numFields(),
+                t2.getTupleDesc().numFields());
+        return tuple;
+    }
 
     /**
      * Create a new tuple with the specified schema (type).
@@ -25,7 +33,7 @@ public class Tuple {
      */
     public Tuple(TupleDesc td) {
         this.tupleDescription = td;
-        this.fieldValues = new HashMap<Integer, Field>();
+        this.fieldValues = new Field[td.numFields()];
     }
 
     /**
@@ -58,7 +66,7 @@ public class Tuple {
      * @param f new value for the field.
      */
     public void setField(int i, Field f) {
-        this.fieldValues.put(i, f);
+        fieldValues[i] = f;
     }
 
     /**
@@ -67,7 +75,7 @@ public class Tuple {
      * @param i field index to return. Must be a valid index.
      */
     public Field getField(int i) {
-        return fieldValues.get(i);
+        return fieldValues[i];
     }
 
     /**

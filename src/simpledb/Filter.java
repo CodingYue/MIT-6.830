@@ -6,6 +6,9 @@ import java.util.*;
  */
 public class Filter extends Operator {
 
+    private final Predicate predicate;
+    private final DbIterator child;
+
     /**
      * Constructor accepts a predicate to apply and a child
      * operator to read tuples to filter from.
@@ -14,25 +17,25 @@ public class Filter extends Operator {
      * @param child The child operator
      */
     public Filter(Predicate p, DbIterator child) {
-        // some code goes here
+        this.predicate = p;
+        this.child = child;
     }
 
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return child.getTupleDesc();
     }
 
     public void open()
         throws DbException, NoSuchElementException, TransactionAbortedException {
-        // some code goes here
+        child.open();
     }
 
     public void close() {
-        // some code goes here
+        child.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child.rewind();
     }
 
     /**
@@ -46,7 +49,12 @@ public class Filter extends Operator {
      */
     protected Tuple fetchNext()
         throws NoSuchElementException, TransactionAbortedException, DbException {
-        // some code goes here
+        while (child.hasNext()) {
+            Tuple tuple = child.next();
+            if (predicate.filter(tuple)) {
+                return tuple;
+            }
+        }
         return null;
     }
 }
