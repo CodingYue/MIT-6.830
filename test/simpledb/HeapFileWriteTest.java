@@ -23,7 +23,7 @@ public class HeapFileWriteTest extends TestUtil.CreateHeapFile {
     }
 
     /**
-     * Unit test for HeapFile.addTuple()
+     * Unit test for HeapFile.insertTuple()
      */
     @Test public void addTuple() throws Exception {
         // we should be able to add 504 tuples on an empty page.

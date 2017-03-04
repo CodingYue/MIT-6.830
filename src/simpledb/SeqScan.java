@@ -1,5 +1,4 @@
 package simpledb;
-import javax.xml.crypto.Data;
 import java.util.*;
 
 /**
@@ -52,7 +51,7 @@ public class SeqScan implements DbIterator {
         String[] fieldNames = new String[tupleDesc.numFields()];
         for (int i = 0; i < tupleDesc.numFields(); ++i) {
             fieldNames[i] = tableAlias + tupleDesc.getFieldName(i);
-            fieldTypes[i] = tupleDesc.getType(i);
+            fieldTypes[i] = tupleDesc.getFieldType(i);
         }
         return new TupleDesc(fieldTypes, fieldNames);
     }

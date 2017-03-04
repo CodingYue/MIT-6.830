@@ -145,7 +145,7 @@ public class BufferPool {
      * Marks any pages that were dirtied by the operation as dirty by calling
      * their markDirty bit.  Does not need to update cached versions of any pages that have 
      * been dirtied, as it is not possible that a new page was created during the deletion
-     * (note difference from addTuple).
+     * (note difference from insertTuple).
      *
      * @param tid the transaction adding the tuple.
      * @param t the tuple to add

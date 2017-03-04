@@ -26,7 +26,7 @@ public class TupleDescTest extends SimpleDbTestBase {
         assertEquals(3 , td3.numFields());
         assertEquals(3 * Type.INT_TYPE.getLen(), td3.getSize());
         for (int i = 0; i < 3; ++i)
-            assertEquals(Type.INT_TYPE, td3.getType(i));
+            assertEquals(Type.INT_TYPE, td3.getFieldType(i));
         assertEquals(combinedStringArrays(td1, td2, td3), true);
 
         // test td2.combine(td1)
@@ -34,7 +34,7 @@ public class TupleDescTest extends SimpleDbTestBase {
         assertEquals(3 , td3.numFields());
         assertEquals(3 * Type.INT_TYPE.getLen(), td3.getSize());
         for (int i = 0; i < 3; ++i)
-            assertEquals(Type.INT_TYPE, td3.getType(i));
+            assertEquals(Type.INT_TYPE, td3.getFieldType(i));
         assertEquals(combinedStringArrays(td2, td1, td3), true);
 
         // test td2.combine(td2)
@@ -42,7 +42,7 @@ public class TupleDescTest extends SimpleDbTestBase {
         assertEquals(4 , td3.numFields());
         assertEquals(4 * Type.INT_TYPE.getLen(), td3.getSize());
         for (int i = 0; i < 4; ++i)
-            assertEquals(Type.INT_TYPE, td3.getType(i));
+            assertEquals(Type.INT_TYPE, td3.getFieldType(i));
         assertEquals(combinedStringArrays(td2, td2, td3), true);
     }
 
@@ -68,7 +68,7 @@ public class TupleDescTest extends SimpleDbTestBase {
     }
 
     /**
-     * Unit test for TupleDesc.getType()
+     * Unit test for TupleDesc.getFieldType()
      */
     @Test public void getType() {
         int[] lengths = new int[] { 1, 2, 1000 };
@@ -76,12 +76,12 @@ public class TupleDescTest extends SimpleDbTestBase {
         for (int len: lengths) {
             TupleDesc td = Utility.getTupleDesc(len);
             for (int i = 0; i < len; ++i)
-                assertEquals(Type.INT_TYPE, td.getType(i));
+                assertEquals(Type.INT_TYPE, td.getFieldType(i));
         }
     }
     
     /**
-     * Unit test for TupleDesc.nameToId()
+     * Unit test for TupleDesc.fieldNameToIndex()
      */
     @Test public void nameToId() {
         int[] lengths = new int[] { 1, 2, 1000 };
@@ -91,12 +91,12 @@ public class TupleDescTest extends SimpleDbTestBase {
             // Make sure you retrieve well-named fields
             TupleDesc td = Utility.getTupleDesc(len, prefix);
             for (int i = 0; i < len; ++i) {
-                assertEquals(i, td.nameToId(prefix + i));
+                assertEquals(i, td.fieldNameToIndex(prefix + i));
             }
             
             // Make sure you throw exception for non-existent fields
             try {
-                td.nameToId("foo");
+                td.fieldNameToIndex("foo");
                 Assert.fail("foo is not a valid field name");
             } catch (NoSuchElementException e) {
                 // expected to get here
@@ -104,7 +104,7 @@ public class TupleDescTest extends SimpleDbTestBase {
             
             // Make sure you throw exception for null searches
             try {
-                td.nameToId(null);
+                td.fieldNameToIndex(null);
                 Assert.fail("null is not a valid field name");
             } catch (NoSuchElementException e) {
                 // expected to get here
@@ -113,7 +113,7 @@ public class TupleDescTest extends SimpleDbTestBase {
             // Make sure you throw exception when all field names are null
             td = Utility.getTupleDesc(len);
             try {
-                td.nameToId(prefix);
+                td.fieldNameToIndex(prefix);
                 Assert.fail("no fields are named, so you can't find it");
             } catch (NoSuchElementException e) {
                 // expected to get here

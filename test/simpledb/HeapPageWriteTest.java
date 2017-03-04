@@ -45,7 +45,7 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
     }
 
     /**
-     * Unit test for HeapPage.addTuple()
+     * Unit test for HeapPage.insertTuple()
      */
     @Test public void addTuple() throws Exception {
         HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);

@@ -93,7 +93,7 @@ public class TupleDesc {
      * @return the index of the field that is first to have the given name.
      * @throws NoSuchElementException if no field with a matching name is found.
      */
-    public int nameToId(String name) throws NoSuchElementException {
+    public int fieldNameToIndex(String name) throws NoSuchElementException {
         for (int i = 0; i < numFields(); ++i) {
             if (Objects.equals(name, fieldNames[i])) {
                 return i;
@@ -109,7 +109,7 @@ public class TupleDesc {
      * @return the type of the ith field
      * @throws NoSuchElementException if i is not a valid field reference.
      */
-    public Type getType(int i) throws NoSuchElementException {
+    public Type getFieldType(int i) throws NoSuchElementException {
         if (i > numFields()) {
             throw new NoSuchElementException();
         }

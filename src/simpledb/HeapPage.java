@@ -1,6 +1,5 @@
 package simpledb;
 
-import javax.xml.crypto.Data;
 import java.util.*;
 import java.io.*;
 
@@ -123,7 +122,7 @@ public class HeapPage implements Page {
         t.setRecordId(rid);
         try {
             for (int j=0; j<td.numFields(); j++) {
-                Field f = td.getType(j).parse(dis);
+                Field f = td.getFieldType(j).parse(dis);
                 t.setField(j, f);
             }
         } catch (java.text.ParseException e) {
@@ -240,7 +239,7 @@ public class HeapPage implements Page {
      *         is mismatch.
      * @param t The tuple to add.
      */
-    public void addTuple(Tuple t) throws DbException {
+    public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
     }
