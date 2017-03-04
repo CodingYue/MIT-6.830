@@ -34,7 +34,6 @@ public class IntegerAggregator implements Aggregator {
         this.gbFieldType = gbfieldtype;
         this.aggregateFieldNo = aggregateFieldNo;
         this.what = what;
-
         this.countGroupedBy = new HashMap<Field, Integer>();
         this.valueGroupedBy = new HashMap<Field, Integer>();
     }
