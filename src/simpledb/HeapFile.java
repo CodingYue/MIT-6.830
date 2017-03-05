@@ -27,7 +27,7 @@ public class HeapFile implements DbFile {
     public HeapFile(File f, TupleDesc td) {
         file = f;
         tupleDescription = td;
-        pageCount = f.length() / Database.getBufferPool().PAGE_SIZE;
+        pageCount = f.length() / BufferPool.PAGE_SIZE;
     }
 
     /**
@@ -69,8 +69,7 @@ public class HeapFile implements DbFile {
             byte data[] = new byte[BufferPool.PAGE_SIZE];
             randomAccessFile.read(data);
 
-            Page page = new HeapPage((HeapPageId) pid, data);
-            return page;
+            return new HeapPage((HeapPageId) pid, data);
         } catch (IOException e) {
             throw  new NoSuchElementException();
         }
@@ -92,9 +91,14 @@ public class HeapFile implements DbFile {
     // see DbFile.java for javadocs
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        return null;
-        // not necessary for lab1
+        if (t.getRecordId() != null) {
+            HeapPage page = (HeapPage) readPage(t.getRecordId().getPageId());
+            page.insertTuple(t);
+        } else {
+            for (int i = 0; i < pageCount; ++i) {
+                HeapPage page = (HeapPage) readPage(new HeapPageId())
+            }
+        }
     }
 
     // see DbFile.java for javadocs
@@ -107,8 +111,7 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
-        HeapFileIterator iterator = new HeapFileIterator(this, tid);
-        return iterator;
+        return new HeapFileIterator(this, tid);
     }
     
 }

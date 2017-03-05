@@ -64,7 +64,7 @@ public class HeapPage implements Page {
         @return the number of tuples on this page
     */
     private int getNumTuples() {
-        return Database.getBufferPool().PAGE_SIZE * 8 / (td.getSize() * 8 + 1);
+        return BufferPool.PAGE_SIZE * 8 / (td.getSize() * 8 + 1);
     }
 
     /**
@@ -212,7 +212,7 @@ public class HeapPage implements Page {
      * this method to the HeapPage constructor will create a HeapPage with
      * no valid tuples in it.
      *
-     * @param tableid The id of the table that this empty page will belong to.
+//     * @param tableid The id of the table that this empty page will belong to.
      * @return The returned ByteArray.
      */
     public static byte[] createEmptyPageData() {
@@ -228,8 +228,14 @@ public class HeapPage implements Page {
      * @param t The tuple to delete
      */
     public void deleteTuple(Tuple t) throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        for (int i = 0; i < numSlots; ++i) {
+            if (getSlot(i) && t.equals(tuples[i])) {
+                setSlot(i, false);
+                tuples[i] = null;
+                return;
+            }
+        }
+        throw new DbException("tuple not found");
     }
 
     /**
@@ -240,8 +246,17 @@ public class HeapPage implements Page {
      * @param t The tuple to add.
      */
     public void insertTuple(Tuple t) throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        if (!td.equals(t.getTupleDesc())) {
+            throw new DbException("tuple description mimatched");
+        }
+        for (int i = 0; i < numSlots; ++i) {
+            if (!getSlot(i)) {
+                setSlot(i, true);
+                tuples[i] = t;
+                return;
+            }
+        }
+        throw new DbException("no empty slots");
     }
 
     /**
@@ -286,8 +301,11 @@ public class HeapPage implements Page {
      * Abstraction to fill or clear a slot on this page.
      */
     private void setSlot(int i, boolean value) {
-        // some code goes here
-        // not necessary for lab1
+        if (value) {
+            header[i/8] |= (1<<(i % 8));
+        } else {
+            header[i/8] ^= (1<<(i % 8));
+        }
     }
 
     /**
