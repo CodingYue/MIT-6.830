@@ -17,7 +17,7 @@ public class SeqScan implements DbIterator {
      * Creates a sequential scan over the specified table as a part of the
      * specified transaction.
      *
-     * @param tid The transaction this scan is running as a part of.
+     * @param transactionId The transaction this scan is running as a part of.
      * @param tableId the table to scan.
      * @param tableAlias the alias of this table (needed by the parser);
      *         the returned tupleDesc should have fields with name tableAlias.fieldName
@@ -35,8 +35,6 @@ public class SeqScan implements DbIterator {
     public void open()
         throws DbException, TransactionAbortedException {
         tableIterator.open();
-//        System.out.println(tableIterator != null);
-//        System.out.println(tableIterator.hasNext());
     }
 
     /**
@@ -70,7 +68,6 @@ public class SeqScan implements DbIterator {
 
     public void close() {
         tableIterator.close();
-        tableIterator = null;
     }
 
     public void rewind()

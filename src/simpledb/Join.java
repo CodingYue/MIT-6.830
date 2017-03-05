@@ -43,13 +43,11 @@ public class Join extends Operator {
     public void close() {
         child1.close();
         child2.close();
-        tuple1 = null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        child1.rewind();
-        child2.rewind();
-        tuple1 = null;
+        close();
+        open();
     }
 
     /**
