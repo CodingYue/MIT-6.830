@@ -35,14 +35,13 @@ public class HeapFileIterator implements DbFileIterator {
         if (pageIterator == null) {
             return false;
         }
-        if (pageIterator.hasNext()) {
-            return true;
+        while (!pageIterator.hasNext()) {
+            ++currentPageNo;
+            if (currentPageNo >= heapFile.numPages()) {
+                return false;
+            }
+            pageIterator = getTupleIteratorByPageNo(currentPageNo);
         }
-        ++currentPageNo;
-        if (currentPageNo >= heapFile.numPages()) {
-            return false;
-        }
-        pageIterator = getTupleIteratorByPageNo(currentPageNo);
         return true;
     }
 

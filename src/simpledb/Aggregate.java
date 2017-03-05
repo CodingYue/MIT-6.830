@@ -56,12 +56,13 @@ public class Aggregate extends Operator {
         throws NoSuchElementException, DbException, TransactionAbortedException {
         if (aggregateIterator == null) {
             Aggregator aggregator;
-            if (child.getTupleDesc().getFieldType(afield).equals(Type.INT_TYPE)) {
-                aggregator = new IntegerAggregator(gfield,
-                        child.getTupleDesc().getFieldType(gfield), afield, aop);
+            Type afieldType = child.getTupleDesc().getFieldType(afield);
+            Type gfieldType = gfield == Aggregator.NO_GROUPING ?
+                    null : child.getTupleDesc().getFieldType(gfield);
+            if (afieldType.equals(Type.INT_TYPE)) {
+                aggregator = new IntegerAggregator(gfield, gfieldType, afield, aop);
             } else {
-                aggregator = new StringAggregator(gfield,
-                        child.getTupleDesc().getFieldType(gfield), afield, aop);
+                aggregator = new StringAggregator(gfield, gfieldType, afield, aop);
             }
 
             child.open();

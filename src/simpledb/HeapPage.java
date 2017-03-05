@@ -12,13 +12,15 @@ import java.io.*;
  */
 public class HeapPage implements Page {
 
-    HeapPageId pid;
-    TupleDesc td;
-    byte header[];
-    Tuple tuples[];
-    int numSlots;
+    private final HeapPageId pid;
+    private final TupleDesc td;
+    private final byte header[];
+    private Tuple tuples[];
+    private final int numSlots;
 
-    byte[] oldData;
+    private byte[] oldData;
+
+    private TransactionId dirtyTransactionId;
 
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
@@ -252,6 +254,7 @@ public class HeapPage implements Page {
         for (int i = 0; i < numSlots; ++i) {
             if (!getSlot(i)) {
                 setSlot(i, true);
+                t.setRecordId(new RecordId(getId(), i));
                 tuples[i] = t;
                 return;
             }
@@ -264,17 +267,18 @@ public class HeapPage implements Page {
      * that did the dirtying
      */
     public void markDirty(boolean dirty, TransactionId tid) {
-        // some code goes here
-	// not necessary for lab1
-    }
+        if (dirty) {
+            dirtyTransactionId = tid;
+        } else {
+            dirtyTransactionId = null;
+        }
+     }
 
     /**
      * Returns the tid of the transaction that last dirtied this page, or null if the page is not dirty
      */
     public TransactionId isDirty() {
-        // some code goes here
-	// Not necessary for lab1
-        return null;
+        return dirtyTransactionId;
     }
 
     /**

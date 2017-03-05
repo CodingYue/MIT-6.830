@@ -6,6 +6,12 @@ package simpledb;
  */
 public class Delete extends Operator {
 
+    private final TransactionId transactionId;
+    private final DbIterator child;
+    private final TupleDesc tupleDesc;
+
+    private boolean hasBeenCalled;
+
     /**
      * Constructor specifying the transaction that this delete belongs to as
      * well as the child to read from.
@@ -13,24 +19,27 @@ public class Delete extends Operator {
      * @param child The child operator from which to read tuples for deletion
      */
     public Delete(TransactionId t, DbIterator child) {
-        // some code goes here
+        this.transactionId = t;
+        this.child = child;
+        tupleDesc = new TupleDesc(new Type[]{Type.INT_TYPE});
     }
 
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return tupleDesc;
     }
 
     public void open() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child.open();
+        hasBeenCalled = false;
     }
 
     public void close() {
-        // some code goes here
+        child.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        close();
+        open();
     }
 
     /**
@@ -42,7 +51,18 @@ public class Delete extends Operator {
      * @see BufferPool#deleteTuple
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+        if (hasBeenCalled) {
+            return null;
+        }
+        hasBeenCalled = true;
+        int deleteCount = 0;
+        while (child.hasNext()) {
+            Tuple tuple = child.next();
+            deleteCount++;
+            Database.getBufferPool().deleteTuple(transactionId, tuple);
+        }
+        Tuple tuple = new Tuple(tupleDesc);
+        tuple.setField(0, new IntField(deleteCount));
+        return tuple;
     }
 }
