@@ -1,8 +1,11 @@
 package simpledb;
 
+import org.omg.CORBA.PUBLIC_MEMBER;
+
 import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -14,6 +17,65 @@ import java.util.*;
  * locks to read/write the page.
  */
 public class BufferPool {
+
+    private static class LockManager {
+        private static final Map<TransactionId, Set<PageId>> tidToPages = new HashMap<TransactionId, Set<PageId>>();
+        private static final Map<PageId, Permissions> pageToPermissions = new HashMap<PageId, Permissions>();
+        private static final Map<PageId, Set<TransactionId>> pageToTids = new HashMap<PageId, Set<TransactionId>>();
+
+        public LockManager() {
+        }
+
+        public static boolean acquireLock(TransactionId tid, PageId pid, Permissions perm) {
+            boolean isPageLocked = pageToPermissions.containsKey(pid);
+            boolean isPagePermissionReadWrite = pageToPermissions.get(pid) == Permissions.READ_WRITE;
+            boolean multipleTrandsactionsHoldPageLock = pageToTids.containsKey(pid) && pageToTids.get(pid).size() >= 2;
+            if (isPageLocked) {
+                if (isPagePermissionReadWrite) {
+                    return false;
+                }
+                if (multipleTrandsactionsHoldPageLock && perm.equals(Permissions.READ_WRITE)) {
+                    return false;
+                }
+            }
+            if (!tidToPages.containsKey(tid)) {
+                tidToPages.put(tid, new HashSet<PageId>());
+            }
+            if (!pageToTids.containsKey(pid)) {
+                pageToTids.put(pid, new HashSet<TransactionId>());
+            }
+
+            pageToPermissions.put(pid, perm);
+            pageToTids.get(pid).add(tid);
+            tidToPages.get(tid).add(pid);
+            return true;
+        }
+
+        public static boolean releaseLock(TransactionId tid, PageId pid) {
+            if (!tidToPages.containsKey(tid) || !tidToPages.get(tid).contains(pid)) {
+                return false;
+            }
+            if (!pageToTids.containsKey(pid) || !pageToTids.get(pid).contains(tid)) {
+                return false;
+            }
+            tidToPages.get(tid).remove(pid);
+            if (tidToPages.get(tid).isEmpty()) {
+                tidToPages.remove(tid);
+            }
+            pageToTids.get(pid).remove(tid);
+            if (pageToTids.get(pid).isEmpty()) {
+                pageToTids.remove(pid);
+                pageToPermissions.remove(pid);
+            }
+            return true;
+        }
+
+        public static boolean isHoldsLock(TransactionId tid, PageId pid) {
+            return pageToTids.containsKey(pid) && pageToTids.get(pid).contains(tid)
+                    && tidToPages.containsKey(tid) && tidToPages.get(tid).contains(pid);
+        }
+    }
+
     /** Bytes per page, including header. */
     public static final int PAGE_SIZE = 4096;
 
@@ -26,9 +88,11 @@ public class BufferPool {
     private final Map<PageId, Integer> cachedPageIndex;
     private final Set<Integer> idlePageIdx;
     private final Map<PageId, Integer> latestUsedTimestamp;
+    private final int numPages;
 
-    private int numPages;
     private int timestamp;
+
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -63,6 +127,12 @@ public class BufferPool {
      */
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
+
+        boolean lockSuccess = LockManager.acquireLock(tid, pid, perm);
+        if (!lockSuccess) {
+            throw new DbException("cannot obtain the lock.");
+        }
+
         timestamp++;
         latestUsedTimestamp.put(pid, timestamp);
 
@@ -91,8 +161,7 @@ public class BufferPool {
      * @param pid the ID of the page to unlock
      */
     public  void releasePage(TransactionId tid, PageId pid) {
-        // some code goes here
-        // not necessary for lab1|lab2
+        LockManager.releaseLock(tid, pid);
     }
 
     /**
