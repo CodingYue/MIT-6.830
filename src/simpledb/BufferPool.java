@@ -22,33 +22,39 @@ public class BufferPool {
         private final Map<TransactionId, Set<PageId>> tidToPages;
         private final Map<PageId, Permissions> pageToPermissions;
         private final Map<PageId, Set<TransactionId>> pageToTids;
+        private final Map<TransactionId, Set<TransactionId>> waitingForTids;
+        private final Set<TransactionId> aliveTids;
 
         public LockManager() {
             tidToPages = new HashMap<TransactionId, Set<PageId>>();
             pageToPermissions = new HashMap<PageId, Permissions>();
             pageToTids = new HashMap<PageId, Set<TransactionId>>();
+            waitingForTids = new HashMap<TransactionId, Set<TransactionId>>();
+            aliveTids = new HashSet<TransactionId>();
         }
 
-        private synchronized boolean checkLockStatus(TransactionId tid, PageId pid, Permissions perm) {
+        private boolean checkLockStatus(TransactionId tid, PageId pid, Permissions perm) {
             if (!pageToPermissions.containsKey(pid)) {
                 return true;
             }
-            boolean multipleTrandsactionsHoldPageLock = pageToTids.containsKey(pid) && pageToTids.get(pid).size() >= 2;
+            boolean multipleTransactions = pageToTids.containsKey(pid) && pageToTids.get(pid).size() >= 2;
 
             if (pageToPermissions.get(pid).equals(Permissions.READ_ONLY)) {
                 if (perm.equals(Permissions.READ_ONLY)) {
                     return true;
                 } else {
-                    return !multipleTrandsactionsHoldPageLock && pageToTids.get(pid).contains(tid);
+                    return !multipleTransactions && pageToTids.get(pid).contains(tid);
                 }
             } else {
                 return pageToTids.get(pid).contains(tid);
             }
         }
 
-        private synchronized boolean acquireLock(TransactionId tid, PageId pid, Permissions perm) {
-            boolean status = checkLockStatus(tid, pid, perm);
-            if (!status) {
+        private boolean acquireLock(TransactionId tid, PageId pid, Permissions perm)
+                throws TransactionAbortedException{
+            aliveTids.add(tid);
+            while (aliveTids.contains(tid) && !checkLockStatus(tid, pid, perm));
+            if (!aliveTids.contains(tid)) {
                 return false;
             }
             if (!tidToPages.containsKey(tid)) {
@@ -64,7 +70,7 @@ public class BufferPool {
             return true;
         }
 
-        private synchronized boolean releaseLock(TransactionId tid, PageId pid) {
+        private boolean releaseLock(TransactionId tid, PageId pid) {
             if (!tidToPages.containsKey(tid) || !tidToPages.get(tid).contains(pid)) {
                 return false;
             }
@@ -83,13 +89,60 @@ public class BufferPool {
             return true;
         }
 
-        public synchronized boolean isHoldsLock(TransactionId tid, PageId pid) {
+        private void releaseTransaction(TransactionId tid) {
+            Set<PageId> pids = new HashSet<PageId>();
+            for (PageId pid : tidToPages.get(tid)) {
+                pids.add(pid);
+            }
+            for (PageId pid : pids) {
+                releaseLock(tid, pid);
+            }
+            waitingForTids.remove(tid);
+            aliveTids.remove(tid);
+        }
+
+        private boolean isHoldsLock(TransactionId tid, PageId pid) {
             return pageToTids.containsKey(pid) && pageToTids.get(pid).contains(tid)
                     && tidToPages.containsKey(tid) && tidToPages.get(tid).contains(pid);
         }
-    }
 
-    private final LockManager lockManager;
+        private Set<PageId> getPageHoldedByTransaction(TransactionId tid) {
+            return tidToPages.get(tid);
+        }
+
+        private void detectDeadlocks(TransactionId originalTid, TransactionId currentTid)
+                throws TransactionAbortedException{
+            if (originalTid.equals(currentTid)) {
+                throw new TransactionAbortedException();
+
+            }
+            if (waitingForTids.containsKey(currentTid)) {
+                for (TransactionId tid : waitingForTids.get(currentTid)) {
+                    detectDeadlocks(originalTid, tid);
+                }
+            }
+        }
+
+        private void detectDeadlocks(TransactionId originalTid, PageId pid)
+                throws TransactionAbortedException {
+            if (pageToTids.containsKey(pid)) {
+                for (TransactionId tid : pageToTids.get(pid)) {
+                    if (!tid.equals(originalTid)) {
+                        detectDeadlocks(originalTid, tid);
+                    }
+                }
+            }
+            if (!waitingForTids.containsKey(originalTid)) {
+                waitingForTids.put(originalTid, new HashSet<TransactionId>());
+            }
+            if (pageToTids.containsKey(pid)) {
+                for (TransactionId tid : pageToTids.get(pid)) {
+                    waitingForTids.get(tid).add(tid);
+                }
+            }
+        }
+
+    }
 
     /** Bytes per page, including header. */
     public static final int PAGE_SIZE = 4096;
@@ -99,12 +152,11 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    private final LockManager lockManager;
     private final Page[] pagePool;
     private final Map<PageId, Integer> cachedPageIndex;
     private final Set<Integer> idlePageIdx;
     private final Map<PageId, Integer> latestUsedTimestamp;
-    private final int numPages;
-
 
     private int timestamp;
 
@@ -115,8 +167,7 @@ public class BufferPool {
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
-        this.numPages = numPages;
-        pagePool = new Page[this.numPages];
+        pagePool = new Page[numPages];
         cachedPageIndex = new HashMap<PageId, Integer>();
         idlePageIdx = new HashSet<Integer>();
         for (int i = 0; i < numPages; ++i) {
@@ -142,10 +193,10 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
-
-        while (!lockManager.acquireLock(tid, pid, perm));
+        lockManager.detectDeadlocks(tid, pid);
+        lockManager.acquireLock(tid, pid, perm);
 
         timestamp++;
         latestUsedTimestamp.put(pid, timestamp);
@@ -184,8 +235,7 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      */
     public  void transactionComplete(TransactionId tid) throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+        lockManager.releaseTransaction(tid);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -204,8 +254,21 @@ public class BufferPool {
      */
     public   void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+        Set<PageId> pages = lockManager.getPageHoldedByTransaction(tid);
+        for (PageId pid : pages) {
+            if (!cachedPageIndex.containsKey(pid)) {
+                continue;
+            }
+            if (commit) {
+                flushPage(pid);
+            } else {
+                pagePool[cachedPageIndex.get(pid)] = null;
+                idlePageIdx.add(cachedPageIndex.get(pid));
+                cachedPageIndex.remove(pid);
+                latestUsedTimestamp.remove(pid);
+            }
+        }
+        transactionComplete(tid);
     }
 
     /**
@@ -296,7 +359,7 @@ public class BufferPool {
      * Discards a page from the buffer pool.
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
-    private synchronized  void evictPage() throws DbException {
+    private synchronized void evictPage() throws DbException {
         if (idlePageIdx.size() != 0) {
             throw new DbException("evict must meet condition : not more slots");
         }
@@ -320,6 +383,7 @@ public class BufferPool {
         idlePageIdx.add(idx);
         pagePool[idx] = null;
         cachedPageIndex.remove(leastRecentlyUsedPage.getId());
+        latestUsedTimestamp.remove(leastRecentlyUsedPage.getId());
     }
 
 }
