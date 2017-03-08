@@ -303,6 +303,9 @@ public class BufferPool {
         Page leastRecentlyUsedPage = null;
         int leastTimestamp = timestamp;
         for (Page page : pagePool) {
+            if (page.isDirty() != null) {
+                continue;
+            }
             if (leastTimestamp > latestUsedTimestamp.get(page.getId())) {
                 leastRecentlyUsedPage = page;
                 leastTimestamp = latestUsedTimestamp.get(page.getId());
