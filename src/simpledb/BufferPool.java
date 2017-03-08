@@ -19,24 +19,37 @@ import java.util.concurrent.locks.Lock;
 public class BufferPool {
 
     private static class LockManager {
-        private static final Map<TransactionId, Set<PageId>> tidToPages = new HashMap<TransactionId, Set<PageId>>();
-        private static final Map<PageId, Permissions> pageToPermissions = new HashMap<PageId, Permissions>();
-        private static final Map<PageId, Set<TransactionId>> pageToTids = new HashMap<PageId, Set<TransactionId>>();
+        private final Map<TransactionId, Set<PageId>> tidToPages;
+        private final Map<PageId, Permissions> pageToPermissions;
+        private final Map<PageId, Set<TransactionId>> pageToTids;
 
         public LockManager() {
+            tidToPages = new HashMap<TransactionId, Set<PageId>>();
+            pageToPermissions = new HashMap<PageId, Permissions>();
+            pageToTids = new HashMap<PageId, Set<TransactionId>>();
         }
 
-        public static boolean acquireLock(TransactionId tid, PageId pid, Permissions perm) {
-            boolean isPageLocked = pageToPermissions.containsKey(pid);
-            boolean isPagePermissionReadWrite = pageToPermissions.get(pid) == Permissions.READ_WRITE;
+        private synchronized boolean checkLockStatus(TransactionId tid, PageId pid, Permissions perm) {
+            if (!pageToPermissions.containsKey(pid)) {
+                return true;
+            }
             boolean multipleTrandsactionsHoldPageLock = pageToTids.containsKey(pid) && pageToTids.get(pid).size() >= 2;
-            if (isPageLocked) {
-                if (isPagePermissionReadWrite) {
-                    return false;
+
+            if (pageToPermissions.get(pid).equals(Permissions.READ_ONLY)) {
+                if (perm.equals(Permissions.READ_ONLY)) {
+                    return true;
+                } else {
+                    return !multipleTrandsactionsHoldPageLock && pageToTids.get(pid).contains(tid);
                 }
-                if (multipleTrandsactionsHoldPageLock && perm.equals(Permissions.READ_WRITE)) {
-                    return false;
-                }
+            } else {
+                return pageToTids.get(pid).contains(tid);
+            }
+        }
+
+        private synchronized boolean acquireLock(TransactionId tid, PageId pid, Permissions perm) {
+            boolean status = checkLockStatus(tid, pid, perm);
+            if (!status) {
+                return false;
             }
             if (!tidToPages.containsKey(tid)) {
                 tidToPages.put(tid, new HashSet<PageId>());
@@ -51,7 +64,7 @@ public class BufferPool {
             return true;
         }
 
-        public static boolean releaseLock(TransactionId tid, PageId pid) {
+        private synchronized boolean releaseLock(TransactionId tid, PageId pid) {
             if (!tidToPages.containsKey(tid) || !tidToPages.get(tid).contains(pid)) {
                 return false;
             }
@@ -70,11 +83,13 @@ public class BufferPool {
             return true;
         }
 
-        public static boolean isHoldsLock(TransactionId tid, PageId pid) {
+        public synchronized boolean isHoldsLock(TransactionId tid, PageId pid) {
             return pageToTids.containsKey(pid) && pageToTids.get(pid).contains(tid)
                     && tidToPages.containsKey(tid) && tidToPages.get(tid).contains(pid);
         }
     }
+
+    private final LockManager lockManager;
 
     /** Bytes per page, including header. */
     public static final int PAGE_SIZE = 4096;
@@ -89,6 +104,7 @@ public class BufferPool {
     private final Set<Integer> idlePageIdx;
     private final Map<PageId, Integer> latestUsedTimestamp;
     private final int numPages;
+
 
     private int timestamp;
 
@@ -108,6 +124,7 @@ public class BufferPool {
         }
         latestUsedTimestamp = new HashMap<PageId, Integer>();
         timestamp = 0;
+        lockManager = new LockManager();
     }
 
     /**
@@ -128,10 +145,7 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
 
-        boolean lockSuccess = LockManager.acquireLock(tid, pid, perm);
-        if (!lockSuccess) {
-            throw new DbException("cannot obtain the lock.");
-        }
+        while (!lockManager.acquireLock(tid, pid, perm));
 
         timestamp++;
         latestUsedTimestamp.put(pid, timestamp);
@@ -161,7 +175,7 @@ public class BufferPool {
      * @param pid the ID of the page to unlock
      */
     public  void releasePage(TransactionId tid, PageId pid) {
-        LockManager.releaseLock(tid, pid);
+        lockManager.releaseLock(tid, pid);
     }
 
     /**
