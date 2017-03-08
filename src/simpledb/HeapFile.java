@@ -64,15 +64,25 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public Page readPage(PageId pid) throws NoSuchElementException {
+    public synchronized Page readPage(PageId pid) throws NoSuchElementException {
+        if (pid.pageno() > pageCount) {
+            throw new NoSuchElementException();
+        }
         try {
-            RandomAccessFile randomAccessFile;
-            randomAccessFile = new RandomAccessFile(file, "r");
-            randomAccessFile.seek(BufferPool.PAGE_SIZE * pid.pageno());
-            byte data[] = new byte[BufferPool.PAGE_SIZE];
-            randomAccessFile.read(data);
+            if (pid.pageno() == pageCount) {
+                pageCount++;
+                Page page = new HeapPage((HeapPageId) pid, HeapPage.createEmptyPageData());
+                writePage(page);
+                return page;
+            } else {
+                RandomAccessFile randomAccessFile;
+                randomAccessFile = new RandomAccessFile(file, "r");
+                randomAccessFile.seek(BufferPool.PAGE_SIZE * pid.pageno());
+                byte data[] = new byte[BufferPool.PAGE_SIZE];
+                randomAccessFile.read(data);
 
-            return new HeapPage((HeapPageId) pid, data);
+                return new HeapPage((HeapPageId) pid, data);
+            }
         } catch (IOException e) {
             throw  new NoSuchElementException();
         }
@@ -80,20 +90,16 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public void writePage(Page page) throws IOException {
-        try {
-            RandomAccessFile randomAccessFile;
-            randomAccessFile = new RandomAccessFile(file, "rw");
-            randomAccessFile.seek(BufferPool.PAGE_SIZE * page.getId().pageno());
-            randomAccessFile.write(page.getPageData());
-        } catch (IOException e) {
-            throw e;
-        }
+        RandomAccessFile randomAccessFile;
+        randomAccessFile = new RandomAccessFile(file, "rw");
+        randomAccessFile.seek(BufferPool.PAGE_SIZE * page.getId().pageno());
+        randomAccessFile.write(page.getPageData());
     }
 
     /**
      * Returns the number of pages in this HeapFile.
      */
-    public long numPages() {
+    public synchronized int numPages() {
         return pageCount;
     }
 
@@ -101,17 +107,19 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         for (int i = 0; i < numPages(); ++i) {
-            HeapPage page = (HeapPage) Database.getBufferPool()
-                    .getPage(tid, new HeapPageId(getId(), i), Permissions.READ_WRITE);
+            PageId pid = new HeapPageId(getId(), i);
+            HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
             if (page.getNumEmptySlots() > 0) {
+                page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
                 page.insertTuple(t);
                 return new ArrayList<Page>(Arrays.asList(page));
+            } else {
+                Database.getBufferPool().releasePage(tid, pid);
             }
         }
-        HeapPage page = new HeapPage(new HeapPageId(getId(), pageCount), HeapPage.createEmptyPageData());
-        pageCount++;
+        HeapPageId pid = new HeapPageId(getId(), numPages());
+        HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
         page.insertTuple(t);
-        writePage(page);
         return new ArrayList<Page>(Arrays.asList(page));
     }
 
