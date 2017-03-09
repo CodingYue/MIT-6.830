@@ -1,11 +1,7 @@
 package simpledb;
 
-import org.omg.CORBA.PUBLIC_MEMBER;
-
-import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -23,17 +19,17 @@ public class BufferPool {
         private final Map<PageId, Permissions> pageToPermissions;
         private final Map<PageId, Set<TransactionId>> pageToTids;
         private final Map<TransactionId, Set<TransactionId>> waitingForTids;
-        private final Set<TransactionId> aliveTids;
+        private final Map<TransactionId, PageId> acquiringLockPage;
 
         public LockManager() {
             tidToPages = new HashMap<TransactionId, Set<PageId>>();
             pageToPermissions = new HashMap<PageId, Permissions>();
             pageToTids = new HashMap<PageId, Set<TransactionId>>();
             waitingForTids = new HashMap<TransactionId, Set<TransactionId>>();
-            aliveTids = new HashSet<TransactionId>();
+            acquiringLockPage = new HashMap<TransactionId, PageId>();
         }
 
-        private boolean checkLockStatus(TransactionId tid, PageId pid, Permissions perm) {
+        private synchronized boolean checkLockStatus(TransactionId tid, PageId pid, Permissions perm) {
             if (!pageToPermissions.containsKey(pid)) {
                 return true;
             }
@@ -50,11 +46,11 @@ public class BufferPool {
             }
         }
 
-        private boolean acquireLock(TransactionId tid, PageId pid, Permissions perm)
+        private synchronized boolean acquireLock(TransactionId tid, PageId pid, Permissions perm)
                 throws TransactionAbortedException{
-            aliveTids.add(tid);
-            while (aliveTids.contains(tid) && !checkLockStatus(tid, pid, perm));
-            if (!aliveTids.contains(tid)) {
+            acquiringLockPage.put(tid, pid);
+            detectDeadlocks(tid, pid);
+            if (!checkLockStatus(tid, pid, perm)) {
                 return false;
             }
             if (!tidToPages.containsKey(tid)) {
@@ -67,10 +63,11 @@ public class BufferPool {
             pageToPermissions.put(pid, perm);
             pageToTids.get(pid).add(tid);
             tidToPages.get(tid).add(pid);
+            acquiringLockPage.remove(tid);
             return true;
         }
 
-        private boolean releaseLock(TransactionId tid, PageId pid) {
+        private synchronized boolean releaseLock(TransactionId tid, PageId pid) {
             if (!tidToPages.containsKey(tid) || !tidToPages.get(tid).contains(pid)) {
                 return false;
             }
@@ -89,41 +86,56 @@ public class BufferPool {
             return true;
         }
 
-        private void releaseTransaction(TransactionId tid) {
+        private synchronized void releaseTransaction(TransactionId tid) {
             Set<PageId> pids = new HashSet<PageId>();
-            for (PageId pid : tidToPages.get(tid)) {
-                pids.add(pid);
+            if (tidToPages.containsKey(tid)) {
+                for (PageId pid : tidToPages.get(tid)) {
+                    pids.add(pid);
+                }
             }
             for (PageId pid : pids) {
                 releaseLock(tid, pid);
             }
-            waitingForTids.remove(tid);
-            aliveTids.remove(tid);
+            acquiringLockPage.remove(tid);
         }
 
-        private boolean isHoldsLock(TransactionId tid, PageId pid) {
+        private synchronized boolean isHoldsLock(TransactionId tid, PageId pid) {
             return pageToTids.containsKey(pid) && pageToTids.get(pid).contains(tid)
                     && tidToPages.containsKey(tid) && tidToPages.get(tid).contains(pid);
         }
 
-        private Set<PageId> getPageHoldedByTransaction(TransactionId tid) {
+        private synchronized Set<PageId> pageLockedByTid(TransactionId tid) {
             return tidToPages.get(tid);
         }
 
-        private void detectDeadlocks(TransactionId originalTid, TransactionId currentTid)
+        private synchronized Set<TransactionId> getWaitingForTids(TransactionId transactionId) {
+            Set<TransactionId> transactionIdSet = new HashSet<TransactionId>();
+            if (!acquiringLockPage.containsKey(transactionId)) {
+                return transactionIdSet;
+            }
+            PageId pid = acquiringLockPage.get(transactionId);
+            if (pageToTids.containsKey(pid)) {
+                for (TransactionId tid : pageToTids.get(pid)) {
+                    transactionIdSet.add(tid);
+                }
+            }
+            return transactionIdSet;
+        }
+
+        private synchronized void detectDeadlocks(TransactionId originalTid, TransactionId currentTid)
                 throws TransactionAbortedException{
             if (originalTid.equals(currentTid)) {
                 throw new TransactionAbortedException();
 
             }
-            if (waitingForTids.containsKey(currentTid)) {
-                for (TransactionId tid : waitingForTids.get(currentTid)) {
+            for (TransactionId tid : getWaitingForTids(currentTid)) {
+                if (!currentTid.equals(tid)) {
                     detectDeadlocks(originalTid, tid);
                 }
             }
         }
 
-        private void detectDeadlocks(TransactionId originalTid, PageId pid)
+        private synchronized void detectDeadlocks(TransactionId originalTid, PageId pid)
                 throws TransactionAbortedException {
             if (pageToTids.containsKey(pid)) {
                 for (TransactionId tid : pageToTids.get(pid)) {
@@ -132,16 +144,7 @@ public class BufferPool {
                     }
                 }
             }
-            if (!waitingForTids.containsKey(originalTid)) {
-                waitingForTids.put(originalTid, new HashSet<TransactionId>());
-            }
-            if (pageToTids.containsKey(pid)) {
-                for (TransactionId tid : pageToTids.get(pid)) {
-                    waitingForTids.get(tid).add(tid);
-                }
-            }
         }
-
     }
 
     /** Bytes per page, including header. */
@@ -160,6 +163,7 @@ public class BufferPool {
 
     private int timestamp;
 
+    private final Object LOCK;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -176,6 +180,7 @@ public class BufferPool {
         latestUsedTimestamp = new HashMap<PageId, Integer>();
         timestamp = 0;
         lockManager = new LockManager();
+        LOCK = new Object();
     }
 
     /**
@@ -195,25 +200,26 @@ public class BufferPool {
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
-        lockManager.detectDeadlocks(tid, pid);
-        lockManager.acquireLock(tid, pid, perm);
+        while (!lockManager.acquireLock(tid, pid, perm));
 
-        timestamp++;
-        latestUsedTimestamp.put(pid, timestamp);
+        synchronized (LOCK) {
+            timestamp++;
+            latestUsedTimestamp.put(pid, timestamp);
 
-        if (cachedPageIndex.containsKey(pid)) {
-            return pagePool[cachedPageIndex.get(pid)];
+            if (cachedPageIndex.containsKey(pid)) {
+                return pagePool[cachedPageIndex.get(pid)];
+            }
+
+            if (idlePageIdx.size() == 0) {
+                evictPage();
+            }
+            int idleIdx = idlePageIdx.iterator().next();
+            cachedPageIndex.put(pid, idleIdx);
+            idlePageIdx.remove(idleIdx);
+            pagePool[idleIdx] = Database.getCatalog().getDbFile(
+                    pid.getTableId()).readPage(pid);
+            return pagePool[idleIdx];
         }
-
-        if (idlePageIdx.size() == 0) {
-            evictPage();
-        }
-        int idleIdx = idlePageIdx.iterator().next();
-        cachedPageIndex.put(pid, idleIdx);
-        idlePageIdx.remove(idleIdx);
-        pagePool[idleIdx] = Database.getCatalog().getDbFile(
-                pid.getTableId()).readPage(pid);
-        return pagePool[idleIdx];
     }
 
     /**
@@ -254,18 +260,20 @@ public class BufferPool {
      */
     public   void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
-        Set<PageId> pages = lockManager.getPageHoldedByTransaction(tid);
-        for (PageId pid : pages) {
-            if (!cachedPageIndex.containsKey(pid)) {
-                continue;
-            }
-            if (commit) {
-                flushPage(pid);
-            } else {
-                pagePool[cachedPageIndex.get(pid)] = null;
-                idlePageIdx.add(cachedPageIndex.get(pid));
-                cachedPageIndex.remove(pid);
-                latestUsedTimestamp.remove(pid);
+        Set<PageId> pages = lockManager.pageLockedByTid(tid);
+        synchronized (LOCK) {
+            for (PageId pid : pages) {
+                if (!cachedPageIndex.containsKey(pid)) {
+                    continue;
+                }
+                if (commit) {
+                    flushPage(pid);
+                } else {
+                    pagePool[cachedPageIndex.get(pid)] = null;
+                    idlePageIdx.add(cachedPageIndex.get(pid));
+                    cachedPageIndex.remove(pid);
+                    latestUsedTimestamp.remove(pid);
+                }
             }
         }
         transactionComplete(tid);
@@ -320,8 +328,10 @@ public class BufferPool {
      *     break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        for (int idx : cachedPageIndex.values()) {
-            flushPage(pagePool[idx].getId());
+        synchronized (LOCK) {
+            for (int idx : cachedPageIndex.values()) {
+                flushPage(pagePool[idx].getId());
+            }
         }
     }
 
@@ -360,30 +370,32 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized void evictPage() throws DbException {
-        if (idlePageIdx.size() != 0) {
-            throw new DbException("evict must meet condition : not more slots");
-        }
-        Page leastRecentlyUsedPage = null;
-        int leastTimestamp = timestamp;
-        for (Page page : pagePool) {
-            if (page.isDirty() != null) {
-                continue;
+        synchronized (LOCK) {
+            if (idlePageIdx.size() != 0) {
+                throw new DbException("evict must meet condition : not more slots");
             }
-            if (leastTimestamp > latestUsedTimestamp.get(page.getId())) {
-                leastRecentlyUsedPage = page;
-                leastTimestamp = latestUsedTimestamp.get(page.getId());
+            Page leastRecentlyUsedPage = null;
+            int leastTimestamp = timestamp;
+            for (Page page : pagePool) {
+                if (page.isDirty() != null) {
+                    continue;
+                }
+                if (leastTimestamp > latestUsedTimestamp.get(page.getId())) {
+                    leastRecentlyUsedPage = page;
+                    leastTimestamp = latestUsedTimestamp.get(page.getId());
+                }
             }
+            try {
+                flushPage(leastRecentlyUsedPage.getId());
+            } catch (Exception e) {
+                throw new DbException("flush page failed.");
+            }
+            int idx = cachedPageIndex.get(leastRecentlyUsedPage.getId());
+            idlePageIdx.add(idx);
+            pagePool[idx] = null;
+            cachedPageIndex.remove(leastRecentlyUsedPage.getId());
+            latestUsedTimestamp.remove(leastRecentlyUsedPage.getId());
         }
-        try {
-            flushPage(leastRecentlyUsedPage.getId());
-        } catch (Exception e) {
-            throw new DbException("flush page failed.");
-        }
-        int idx = cachedPageIndex.get(leastRecentlyUsedPage.getId());
-        idlePageIdx.add(idx);
-        pagePool[idx] = null;
-        cachedPageIndex.remove(leastRecentlyUsedPage.getId());
-        latestUsedTimestamp.remove(leastRecentlyUsedPage.getId());
     }
 
 }

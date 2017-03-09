@@ -1,8 +1,10 @@
 package simpledb;
 
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Objects;
 
 
 /**
@@ -97,5 +99,14 @@ public class Tuple {
         }
         result += "\n";
         return result;
+    }
+
+    public boolean equals(Object o) {
+        if (!Objects.equals(this.getClass(), o.getClass())) {
+            return false;
+        }
+        Tuple that = (Tuple) o;
+        return Objects.equals(recordId, that.recordId) && Objects.equals(tupleDescription, that.tupleDescription)
+                && Arrays.equals(fieldValues, that.fieldValues);
     }
 }
