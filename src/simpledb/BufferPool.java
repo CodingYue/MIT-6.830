@@ -18,14 +18,12 @@ public class BufferPool {
         private final Map<TransactionId, Set<PageId>> tidToPages;
         private final Map<PageId, Permissions> pageToPermissions;
         private final Map<PageId, Set<TransactionId>> pageToTids;
-        private final Map<TransactionId, Set<TransactionId>> waitingForTids;
         private final Map<TransactionId, PageId> acquiringLockPage;
 
         public LockManager() {
             tidToPages = new HashMap<TransactionId, Set<PageId>>();
             pageToPermissions = new HashMap<PageId, Permissions>();
             pageToTids = new HashMap<PageId, Set<TransactionId>>();
-            waitingForTids = new HashMap<TransactionId, Set<TransactionId>>();
             acquiringLockPage = new HashMap<TransactionId, PageId>();
         }
 
@@ -48,8 +46,10 @@ public class BufferPool {
 
         private synchronized boolean acquireLock(TransactionId tid, PageId pid, Permissions perm)
                 throws TransactionAbortedException{
-            acquiringLockPage.put(tid, pid);
-            detectDeadlocks(tid, pid);
+            if (!acquiringLockPage.containsKey(tid)) {
+                acquiringLockPage.put(tid, pid);
+                detectDeadlocks(tid, pid);
+            }
             if (!checkLockStatus(tid, pid, perm)) {
                 return false;
             }
@@ -122,15 +122,15 @@ public class BufferPool {
             return transactionIdSet;
         }
 
-        private synchronized void detectDeadlocks(TransactionId originalTid, TransactionId currentTid)
+        private synchronized void detectDeadlocks(Set<TransactionId> visitedTransaction, TransactionId currentTid)
                 throws TransactionAbortedException{
-            if (originalTid.equals(currentTid)) {
+            if (visitedTransaction.contains(currentTid)) {
                 throw new TransactionAbortedException();
-
             }
+            visitedTransaction.add(currentTid);
             for (TransactionId tid : getWaitingForTids(currentTid)) {
                 if (!currentTid.equals(tid)) {
-                    detectDeadlocks(originalTid, tid);
+                    detectDeadlocks(visitedTransaction, tid);
                 }
             }
         }
@@ -140,7 +140,7 @@ public class BufferPool {
             if (pageToTids.containsKey(pid)) {
                 for (TransactionId tid : pageToTids.get(pid)) {
                     if (!tid.equals(originalTid)) {
-                        detectDeadlocks(originalTid, tid);
+                        detectDeadlocks(new HashSet<TransactionId>(), tid);
                     }
                 }
             }
