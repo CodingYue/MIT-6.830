@@ -29,7 +29,7 @@ public class HashEquiJoin extends Operator {
         this.pred = p;
         this.child1 = child1;
         this.child2 = child2;
-        comboTD = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
+        comboTD = TupleDesc.combine(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public JoinPredicate getJoinPredicate() {

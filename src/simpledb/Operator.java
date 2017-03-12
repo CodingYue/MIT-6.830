@@ -29,6 +29,10 @@ public abstract class Operator implements DbIterator {
     @return the next Tuple in the iterator, or null if the iteration is finished. */
     protected abstract Tuple fetchNext() throws DbException, TransactionAbortedException;
 
+    public abstract DbIterator[] getChildren();
+
+    public abstract void setChildren(DbIterator[] children);
+
     /** Closes this iterator. If overridden by a subclass, they should call
      super.close() in order for Operator's internal state to be
     consistent. */

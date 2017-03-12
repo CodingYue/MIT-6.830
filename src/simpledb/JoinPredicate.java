@@ -28,6 +28,14 @@ public class JoinPredicate {
         this.field2 = field2;
     }
 
+    public int getField1() {
+        return field1;
+    }
+
+    public int getField2() {
+        return field2;
+    }
+
     /**
      * Apply the predicate to the two specified tuples.
      * The comparison can be made through Field's compare method.

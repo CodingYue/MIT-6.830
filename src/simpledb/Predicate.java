@@ -69,4 +69,16 @@ public class Predicate {
         return "f = " + String.valueOf(fieldNo) + ", op = " + op.toString() + ", " +
                 "operand = " + operand.toString();
     }
+
+    public int getField() {
+        return fieldNo;
+    }
+
+    public Op getOp() {
+        return op;
+    }
+
+    public Field getOperand() {
+        return operand;
+    }
 }
