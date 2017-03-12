@@ -37,14 +37,6 @@ public class SeqScan implements DbIterator {
         tableIterator.open();
     }
 
-    public String getAlias() {
-        return tableAlias;
-    }
-
-    public String getTableName() {
-        return Database.getCatalog().getTableName(tableId);
-    }
-
     /**
      * Returns the TupleDesc with field names from the underlying HeapFile,
      * prefixed with the tableAlias string from the constructor.

@@ -89,11 +89,4 @@ public class Join extends Operator {
         }
         return null;
     }
-    public String getJoinField1Name() {
-        return this.child1.getTupleDesc().getFieldName(this.predicate.getField1());
-    }
-
-    public String getJoinField2Name() {
-        return this.child2.getTupleDesc().getFieldName(this.predicate.getField2());
-    }
 }
